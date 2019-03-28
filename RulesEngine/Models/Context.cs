@@ -6,5 +6,6 @@ namespace RulesEngine.Models
 {
     public class Context
     {
+        public IDictionary<string, object> Tags { get; set; }
     }
 }
