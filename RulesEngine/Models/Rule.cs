@@ -1,4 +1,5 @@
-﻿using MongoDB.Bson.Serialization.Attributes;
+﻿using MongoDB.Bson;
+using MongoDB.Bson.Serialization.Attributes;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -10,7 +11,9 @@ namespace RulesEngine.Models
         private int _priority;
 
         [BsonId]
-        public string Id { get; set; } 
+        public ObjectId Id { get; set; } 
+
+        [BsonRepresentation(BsonType.String)]
         public RuleType Type { get; set; }
 
         public string Key { get; set; } // GAMESCATEGORYID

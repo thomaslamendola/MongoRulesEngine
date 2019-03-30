@@ -5,7 +5,8 @@ namespace RulesEngine.Repositories
 {
     public interface IRulesRepository
     {
-        IDictionary<string, Rule> GetByContext(Context context);
+        IEnumerable<Rule> GetByKey(string key);
+        IEnumerable<Rule> GetByKeyAndContext(string key, Context context);
         IEnumerable<Rule> GetAll();
         bool Set(Rule rule);
         bool Remove(string id);

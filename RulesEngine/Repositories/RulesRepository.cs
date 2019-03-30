@@ -20,8 +20,27 @@ namespace RulesEngine.Repositories
             throw new NotImplementedException();
         }
 
-        public IDictionary<string, Rule> GetByContext(Context context)
+        public IEnumerable<Rule> GetByKey(string key)
         {
+            throw new NotImplementedException();
+        }
+
+        public IEnumerable<Rule> GetByKeyAndContext(string key, Context context)
+        {
+            var result = new Dictionary<string, Rule>();
+            var rules = _collection.Find(r => r.Key.Equals(key)).ToList();
+
+            var relevantRulesByTags = new List<Rule>();
+            var tagKeys = context.Tags.GroupBy(t => t.Key).Select(g => g.Key).ToList();
+
+            rules = rules.FilterByTags(tagKeys);
+            rules = rules.FilterByMatch(context.Tags);
+
+            var defaultRules = rules.Where(r => r.Type.Equals(RuleType.Default)).ToList();
+            var replacementRules = rules.Where(r => r.Type.Equals(RuleType.Replacement)).ToList();
+
+            #region Reference
+            /*
             var items = new List<Rule>();
 
             var replacementRules = _collection.Find(i => i.Type.Equals(RuleType.Replacement)).ToList();
@@ -81,8 +100,10 @@ namespace RulesEngine.Repositories
 
                 }
             }
+            */
+            #endregion
 
-            return result;
+            return rules;
         }
 
         public bool Remove(string id)
