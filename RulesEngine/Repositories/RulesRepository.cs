@@ -1,4 +1,5 @@
-﻿using MongoDB.Driver;
+﻿using MongoDB.Bson;
+using MongoDB.Driver;
 using RulesEngine.Models;
 using System;
 using System.Collections.Generic;
@@ -13,112 +14,83 @@ namespace RulesEngine.Repositories
         public RulesRepository(IMongoCollection<Rule> collection)
         {
             _collection = collection;
+
+            var ruleIndexBuilder = Builders<Rule>.IndexKeys;
+            var indexModel = new CreateIndexModel<Rule>(ruleIndexBuilder.Ascending(r => r.Key));
+            _collection.Indexes.CreateOne(indexModel);
         }
 
         public IEnumerable<Rule> GetAll()
         {
-            throw new NotImplementedException();
+            return _collection.Find(_ => true).ToList();
         }
 
-        public IEnumerable<Rule> GetByKey(string key)
+        public IEnumerable<Rule> GetRulesByKey(string key)
         {
-            throw new NotImplementedException();
+            return _collection.Find(r => r.Key.Equals(key)).ToList();
         }
 
-        public IEnumerable<Rule> GetByKeyAndContext(string key, Context context)
+        public IEnumerable<Rule> GetRulesByKeyAndContext(string key, Context context)
         {
-            var result = new Dictionary<string, Rule>();
+            var result = new List<Rule>();
             var rules = _collection.Find(r => r.Key.Equals(key)).ToList();
 
             var relevantRulesByTags = new List<Rule>();
             var tagKeys = context.Tags.GroupBy(t => t.Key).Select(g => g.Key).ToList();
 
             rules = rules.FilterByTags(tagKeys);
-            rules = rules.FilterByMatch(context.Tags);
+            rules = rules.FilterByMatch(context.Tags, context.DynamicDatasets);
 
             var defaultRules = rules.Where(r => r.Type.Equals(RuleType.Default)).ToList();
             var replacementRules = rules.Where(r => r.Type.Equals(RuleType.Replacement)).ToList();
 
-            #region Reference
-            /*
-            var items = new List<Rule>();
-
-            var replacementRules = _collection.Find(i => i.Type.Equals(RuleType.Replacement)).ToList();
-            items.AddRange(replacementRules.OrderByDescending(i => i.Priority).ToList());
-
-            var defaultRules = _collection.Find(i => i.Type.Equals(RuleType.Default)).ToList();
-            items.AddRange(defaultRules.OrderByDescending(i => i.Priority).ToList());
-
-            var keys = items.GroupBy(i => i.Key).Select(g => g.Key).ToList();
-
-            var existingTags = new List<string>();
-            var tagsCollections = items.GroupBy(i => i.Tags?.Keys).Select(g => g.Key).ToList();
-            foreach (var tagCollection in tagsCollections)
+            foreach (var replacementRule in replacementRules)
             {
-                if (tagCollection != null)
+                var ruleToRemove = defaultRules.Where(r => r.Value.Equals(replacementRule.ValueToBeReplaced)).FirstOrDefault(); //giving for granted the value is unique... otherwise all should be removed (if needed according to replacement rule)
+                if (ruleToRemove != null)
                 {
-                    existingTags.AddRange(tagCollection);
+                    defaultRules.Remove(ruleToRemove);
+                    defaultRules.Add(replacementRule);
                 }
             }
-            existingTags = existingTags.Distinct().ToList();
 
-            var commonTags = context.Tags.Select(x => x.Key).Intersect(existingTags);
+            result.AddRange(defaultRules);
 
-            var result = new Dictionary<string, Rule>();
-
-            if(!commonTags.Any())
-            {
-                items = items.Where(i => i.Priority.Equals(0)).ToList();
-            }
-
-            foreach (var key in keys)
-            {
-                foreach (var item in items.Where(i => i.Key.Equals(key)).ToList())
-                {
-                    if (result.ContainsKey(key))
-                        break;
-
-                    var equals = true;
-
-                    foreach (var kvp in context.Tags)
-                    {
-                        var k = kvp.Key;
-                        var v = kvp.Value;
-
-                        if (item.Tags != null && item.Tags.ContainsKey(k))
-                        {
-                            if (!item.Tags[k].Equals(v))
-                            {
-                                equals = false;
-                                break;
-                            }
-                        }
-                    }
-
-                    if (equals)
-                        result.Add(key, item);
-
-                }
-            }
-            */
-            #endregion
-
-            return rules;
+            return result;
         }
 
-        public bool Remove(string id)
+        public IEnumerable<string> GetValuesByKeyAndContext(string key, Context context)
         {
-            throw new NotImplementedException();
+            return GetRulesByKeyAndContext(key, context).Select(r => r.Value).Distinct().ToList();
         }
 
-        public bool Set(Rule rule)
+        public bool Remove(ObjectId id)
         {
-            throw new NotImplementedException();
+            return _collection.DeleteOne(r => r.Id.Equals(id)).IsAcknowledged;
+        }
+
+        public Rule Set(Rule rule)
+        {
+            try
+            {
+                _collection.InsertOne(rule);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+
+            return rule;
         }
 
         public bool Update(Rule rule)
         {
-            throw new NotImplementedException();
+            return _collection.ReplaceOne(r => r.Id.Equals(rule.Id), rule).IsAcknowledged;
+        }
+
+        public bool RemoveAll()
+        {
+            return _collection.DeleteMany(_ => true).IsAcknowledged;
         }
     }
 }

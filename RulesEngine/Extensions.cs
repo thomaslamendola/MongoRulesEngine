@@ -1,5 +1,6 @@
 ﻿using RulesEngine.Models;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace RulesEngine
 {
@@ -31,7 +32,7 @@ namespace RulesEngine
             return result;
         }
 
-        public static List<Rule> FilterByMatch(this List<Rule> rules, IDictionary<string, object> tags)
+        public static List<Rule> FilterByMatch(this List<Rule> rules, IDictionary<string, string> tags, IDictionary<string, List<string>> dynamicDatasets)
         {
             var result = new List<Rule>();
             foreach (var rule in rules)
@@ -40,17 +41,30 @@ namespace RulesEngine
                 foreach (var tag in tags)
                 {
                     var currentTagKey = tag.Key;
-                    if (rule.Tags != null)
+                    if (rule.Tags.ContainsKey(currentTagKey))
                     {
-                        if (rule.Tags.ContainsKey(currentTagKey))
+                        var expectedValue = tag.Value;
+                        var ruleTags = rule.Tags.ToDictionaryStringListOfStrings();
+
+                        var relatedRuleValues = ruleTags[currentTagKey];
+
+                        var placeholder = relatedRuleValues.Where(t => t.Contains("%")).FirstOrDefault();
+                        if (!string.IsNullOrWhiteSpace(placeholder))
                         {
-                            var expectedValue = tag.Value;
-                            var relatedRuleValue = rule.Tags[currentTagKey];
-                            if (!relatedRuleValue.Equals(expectedValue))
+                            var trimmedPlaceholder = placeholder.Replace("%", "");
+                            if (dynamicDatasets.ContainsKey(trimmedPlaceholder))
                             {
-                                keep = false;
-                                break;
+                                if (!dynamicDatasets[trimmedPlaceholder].Contains(expectedValue))
+                                {
+                                    keep = false;
+                                    break;
+                                }
                             }
+                        }
+                        else if (!relatedRuleValues.Contains(expectedValue))
+                        {
+                            keep = false;
+                            break;
                         }
                     }
                 }
@@ -60,6 +74,19 @@ namespace RulesEngine
                 }
             }
             return result;
+        }
+
+        public static Dictionary<string, List<string>> ToDictionaryStringListOfStrings(this IDictionary<string, object> dict)
+        {
+            var ruleTags = dict.ToDictionary(t => t.Key, t => (List<object>)t.Value);
+            var castedRuleTags = new Dictionary<string, List<string>>();
+
+            foreach (var ruleTag in ruleTags)
+            {
+                var castedList = ruleTag.Value.OfType<string>();
+                castedRuleTags.Add(ruleTag.Key, castedList.ToList());
+            }
+            return castedRuleTags;
         }
     }
 }

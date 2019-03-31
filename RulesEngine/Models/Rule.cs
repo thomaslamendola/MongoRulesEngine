@@ -8,6 +8,11 @@ namespace RulesEngine.Models
 {
     public class Rule
     {
+        public Rule()
+        {
+            Tags = new Dictionary<string, object>();
+        }
+
         private int _priority;
 
         [BsonId]
@@ -16,8 +21,10 @@ namespace RulesEngine.Models
         [BsonRepresentation(BsonType.String)]
         public RuleType Type { get; set; }
 
-        public string Key { get; set; } // GAMESCATEGORYID
-        public string Value { get; set; } //SLOTS
+        public string Key { get; set; }
+        public string Value { get; set; }
+        public string ValueToBeReplaced { get; set; }
+        public string Metadata { get; set; }
 
         [BsonExtraElements]
         public IDictionary<string, object> Tags { get; set; }
